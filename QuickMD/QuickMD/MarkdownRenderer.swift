@@ -1,6 +1,15 @@
 import Foundation
 import SwiftUI
-import AppKit
+@preconcurrency import AppKit
+
+// Unlike NSImage (marked `@unchecked Sendable` in the macOS 14 SDK), AppKit
+// never gave NSFont a Sendable conformance — so AttributedString's generic
+// `Value: Sendable` requirement on attribute keys flags it unconditionally,
+// with no deployment-target fix. Fonts are effectively immutable once
+// created, so the same guarantee Apple made for NSImage holds here too;
+// this only satisfies that generic check, no actual concurrency crossing
+// happens in this file.
+extension NSFont: @unchecked @retroactive Sendable {}
 
 // MARK: - Dual-Scope Styling
 //

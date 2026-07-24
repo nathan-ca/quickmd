@@ -136,10 +136,10 @@ struct MarkdownView: View {
                         .padding(.horizontal, 32)
                         .padding(.vertical, 24)
                     }
-                    .onChange(of: scrollTrigger) { _ in
+                    .onChange(of: scrollTrigger) {
                         scrollToCurrentMatch(proxy: proxy)
                     }
-                    .onChange(of: tocScrollTarget) { target in
+                    .onChange(of: tocScrollTarget) { _, target in
                         guard let target = target else { return }
                         tocScrollTarget = nil
                         withAnimation(.easeInOut(duration: 0.25)) {
@@ -303,7 +303,7 @@ struct MarkdownView: View {
             }
             isParsing = false
         }
-        .onChange(of: searchText) { newValue in
+        .onChange(of: searchText) { _, newValue in
             searchDebounce?.cancel()
             // Empty search is cheap and the user expects instant clear
             if newValue.isEmpty {

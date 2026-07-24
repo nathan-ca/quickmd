@@ -4,7 +4,7 @@
 
 **Lightning-fast native macOS Markdown viewer**
 
-[![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg)](https://www.apple.com/macos)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
 [![Build & Test](https://github.com/b451c/quickmd/actions/workflows/build.yml/badge.svg)](https://github.com/b451c/quickmd/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -134,7 +134,7 @@ open QuickMD.xcodeproj
 ```
 
 **Requirements:**
-- macOS 13.0 (Ventura) or later
+- macOS 14.0 (Sonoma) or later
 - Xcode 15.0+
 - Swift 5.9+
 
@@ -170,7 +170,7 @@ Now all your Markdown files will open instantly with QuickMD!
 
 - **Language:** Swift 5.9
 - **Framework:** SwiftUI
-- **Minimum OS:** macOS 13.0 (Ventura)
+- **Minimum OS:** macOS 14.0 (Sonoma)
 - **Architecture:** Native Apple Silicon + Intel
 
 ### Key Components

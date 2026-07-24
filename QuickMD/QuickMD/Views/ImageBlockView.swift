@@ -19,7 +19,7 @@ struct ImageBlockView: View {
     private static let maxDisplayWidth: CGFloat = 600
 
     /// Maximum pixel dimension for downsampling (2x for Retina)
-    private static let maxPixelDimension: Int = 1200
+    private nonisolated static let maxPixelDimension: Int = 1200
 
     /// Cached downsampled image for local files
     @State private var localImage: NSImage?
@@ -137,7 +137,7 @@ struct ImageBlockView: View {
         }
 
         // File exists but couldn't load — likely sandbox. Request access and retry.
-        let granted = await SandboxAccessManager.shared.ensureAccess(forParentOf: url)
+        let granted = SandboxAccessManager.shared.ensureAccess(forParentOf: url)
         guard granted else {
             accessDenied = true
             return
@@ -160,7 +160,7 @@ struct ImageBlockView: View {
 
     /// Efficiently load and downsample image using ImageIO
     /// This prevents loading huge images (e.g., 4K) at full resolution
-    private static func loadDownsampledImage(from url: URL, maxPixelSize: Int) -> NSImage? {
+    private nonisolated static func loadDownsampledImage(from url: URL, maxPixelSize: Int) -> NSImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             // Fallback to NSImage if CGImageSource fails
             return NSImage(contentsOf: url)
