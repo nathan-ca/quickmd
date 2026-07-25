@@ -46,6 +46,8 @@ struct MarkdownView: View {
     @AppStorage("isToCVisible") private var isToCVisible: Bool = false
     @AppStorage("isDocumentListVisible") private var isDocumentListVisible: Bool = false
     @AppStorage("documentListWidth") private var documentListWidth: Double = 220
+    @AppStorage("isFolderTreeVisible") private var isFolderTreeVisible: Bool = false
+    @AppStorage("folderTreeWidth") private var folderTreeWidth: Double = 220
     @State private var headings: [ToCEntry] = []
     @State private var tocScrollTarget: String?
     /// Transient bottom toast ("Copied!", "Opened in …"). Nil = hidden.
@@ -85,10 +87,26 @@ struct MarkdownView: View {
         HStack(spacing: 0) {
             // Recent documents sidebar (leftmost)
             if isDocumentListVisible {
-                RecentDocumentsSidebar(theme: theme, currentURL: documentURL)
+                RecentDocumentsSidebar(
+                    theme: theme,
+                    currentURL: documentURL,
+                    onCollapse: { withAnimation(.easeInOut(duration: 0.2)) { isDocumentListVisible = false } }
+                )
                     .frame(width: documentListWidth)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 SidebarResizeHandle(width: $documentListWidth, minWidth: 160, maxWidth: 500)
+            }
+
+            // Folder tree sidebar
+            if isFolderTreeVisible {
+                FolderTreeSidebar(
+                    theme: theme,
+                    currentURL: documentURL,
+                    onCollapse: { withAnimation(.easeInOut(duration: 0.2)) { isFolderTreeVisible = false } }
+                )
+                    .frame(width: folderTreeWidth)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                SidebarResizeHandle(width: $folderTreeWidth, minWidth: 160, maxWidth: 500)
             }
 
             // Table of Contents sidebar
@@ -149,28 +167,27 @@ struct MarkdownView: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                // Reveal sidebar when hidden (sits at top-leading; out of the way of content)
-                if !isDocumentListVisible {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isDocumentListVisible = true
-                        }
-                    } label: {
-                        Image(systemName: "sidebar.leading")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(theme.codeBackgroundColor.opacity(0.6))
-                            .clipShape(Capsule())
+                // Reveal sidebars when hidden (sits at top-leading; out of the way of content)
+                HStack(spacing: 6) {
+                    if !isDocumentListVisible {
+                        SidebarRevealButton(
+                            icon: "sidebar.leading",
+                            help: "Show recent documents (⇧⌘D)",
+                            theme: theme,
+                            action: { withAnimation(.easeInOut(duration: 0.2)) { isDocumentListVisible = true } }
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .focusable(false)
-                    .opacity(0.5)
-                    .help("Show recent documents (⇧⌘D)")
-                    .padding(.top, isSearchVisible ? 44 : 8)
-                    .padding(.leading, 8)
+                    if !isFolderTreeVisible {
+                        SidebarRevealButton(
+                            icon: "folder",
+                            help: "Show folder browser (⇧⌘V)",
+                            theme: theme,
+                            action: { withAnimation(.easeInOut(duration: 0.2)) { isFolderTreeVisible = true } }
+                        )
+                    }
                 }
+                .padding(.top, isSearchVisible ? 44 : 8)
+                .padding(.leading, 8)
             }
             .overlay(alignment: .topTrailing) {
                 HStack(spacing: 8) {
@@ -264,6 +281,7 @@ struct MarkdownView: View {
         .focusedSceneValue(\.copyDocumentAction, { copyToClipboard(currentText) })
         .focusedSceneValue(\.openInExternalEditorAction, { openInExternalEditor() })
         .focusedSceneValue(\.toggleDocumentListAction, { withAnimation(.easeInOut(duration: 0.2)) { isDocumentListVisible.toggle() } })
+        .focusedSceneValue(\.toggleFolderTreeAction, { withAnimation(.easeInOut(duration: 0.2)) { isFolderTreeVisible.toggle() } })
         .environment(\.openURL, OpenURLAction { url in
             handleLinkActivation(url)
             return .handled

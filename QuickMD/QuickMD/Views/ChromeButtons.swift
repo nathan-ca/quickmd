@@ -129,6 +129,34 @@ struct EditInEditorButton: View {
     }
 }
 
+// MARK: - Sidebar Reveal Button
+
+/// Floating capsule button shown at the top-leading corner when a sidebar
+/// panel is hidden, to bring it back. When more than one panel is hidden at
+/// once, the caller stacks multiple instances side by side in an HStack.
+struct SidebarRevealButton: View {
+    let icon: String
+    let help: String
+    let theme: MarkdownTheme
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(theme.codeBackgroundColor.opacity(0.6))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .opacity(0.5)
+        .help(help)
+    }
+}
+
 // MARK: - Tip Jar Button (App Store version)
 
 #if APPSTORE

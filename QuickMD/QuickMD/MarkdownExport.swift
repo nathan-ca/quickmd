@@ -24,6 +24,10 @@ struct FocusedToggleDocumentListKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
+struct FocusedToggleFolderTreeKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 struct FocusedOpenInExternalEditorKey: FocusedValueKey {
     typealias Value = () -> Void
 }
@@ -48,6 +52,10 @@ extension FocusedValues {
     var toggleDocumentListAction: (() -> Void)? {
         get { self[FocusedToggleDocumentListKey.self] }
         set { self[FocusedToggleDocumentListKey.self] = newValue }
+    }
+    var toggleFolderTreeAction: (() -> Void)? {
+        get { self[FocusedToggleFolderTreeKey.self] }
+        set { self[FocusedToggleFolderTreeKey.self] = newValue }
     }
     var openInExternalEditorAction: (() -> Void)? {
         get { self[FocusedOpenInExternalEditorKey.self] }

@@ -42,6 +42,7 @@ struct QuickMDApp: App {
                 FindMenuCommand()
                 ToggleToCCommand()
                 ToggleDocumentListCommand()
+                ToggleFolderTreeCommand()
                 Divider()
                 CopyMarkdownCommand()
             }
@@ -104,6 +105,17 @@ struct ToggleDocumentListCommand: View {
             toggleDocumentListAction?()
         }
         .keyboardShortcut("d", modifiers: [.command, .shift])
+    }
+}
+
+struct ToggleFolderTreeCommand: View {
+    @FocusedValue(\.toggleFolderTreeAction) var toggleFolderTreeAction
+
+    var body: some View {
+        Button("Folder Browser") {
+            toggleFolderTreeAction?()
+        }
+        .keyboardShortcut("v", modifiers: [.command, .shift])
     }
 }
 

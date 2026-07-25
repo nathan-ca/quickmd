@@ -100,14 +100,41 @@ final class SandboxAccessManager {
             return false
         }
 
-        // Save the bookmark
-        do {
-            let bookmarkData = try selectedURL.bookmarkData(options: .withSecurityScope)
-            let key = Self.bookmarkKey(for: selectedURL)
-            UserDefaults.standard.set(bookmarkData, forKey: key)
+        return saveBookmarkAndStartAccess(for: selectedURL)
+    }
 
-            if selectedURL.startAccessingSecurityScopedResource() {
-                activeAccessURLs.append(selectedURL)
+    /// Prompt the user to pick an arbitrary folder to browse, and persist a
+    /// security-scoped bookmark for it. Unlike `ensureAccess(forParentOf:)`
+    /// (which derives the parent directory of a file already being opened),
+    /// this lets the user pick a folder directly — used by the folder tree
+    /// sidebar's "Add Folder" / "Change Folder" actions.
+    /// Returns the picked folder on success, `nil` if cancelled or denied.
+    @discardableResult
+    func pickAndBookmarkFolder() -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "Open Folder"
+        panel.message = "Choose a folder to browse for Markdown files."
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return nil
+        }
+
+        return saveBookmarkAndStartAccess(for: selectedURL) ? selectedURL : nil
+    }
+
+    /// Save a security-scoped bookmark for `url` and begin accessing it.
+    @discardableResult
+    private func saveBookmarkAndStartAccess(for url: URL) -> Bool {
+        do {
+            let bookmarkData = try url.bookmarkData(options: .withSecurityScope)
+            UserDefaults.standard.set(bookmarkData, forKey: Self.bookmarkKey(for: url))
+
+            if url.startAccessingSecurityScopedResource() {
+                activeAccessURLs.append(url)
                 return true
             }
         } catch {

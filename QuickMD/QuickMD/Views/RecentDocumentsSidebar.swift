@@ -11,6 +11,7 @@ struct RecentDocumentsSidebar: View {
     @ObservedObject var store: RecentDocumentsStore = .shared
     let theme: MarkdownTheme
     let currentURL: URL?
+    let onCollapse: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,6 +36,15 @@ struct RecentDocumentsSidebar: View {
                     .buttonStyle(.plain)
                     .help("Clear list")
                 }
+                Button(action: onCollapse) {
+                    Image(systemName: "sidebar.leading")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .padding(3)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Hide recent documents")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
