@@ -18,18 +18,30 @@ struct WindowConfigurator: NSViewRepresentable {
         let view = TabAwareView()
         view.onWindowAttached = { window in
             configure(window)
-            mergeIntoExistingTabIfPossible(window: window)
+            let merged = mergeIntoExistingTabIfPossible(window: window)
+            if !merged {
+                // Standalone window (first window of the session, or every
+                // other window has since closed) — restore the frame the
+                // user last left a QuickMD window at. A tab merged into an
+                // existing group is deliberately left alone above; it
+                // inherits the group's current frame, matching native tab
+                // behavior instead of moving/resizing the whole group to a
+                // historical position.
+                WindowFrameStore.applyPersistedFrame(to: window)
+            }
+            WindowFrameStore.observeFrameChanges(of: window)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 
-    private func mergeIntoExistingTabIfPossible(window newWindow: NSWindow) {
+    @discardableResult
+    private func mergeIntoExistingTabIfPossible(window newWindow: NSWindow) -> Bool {
         // Find another visible QuickMD document window already on screen and
         // merge the new window into its tab group.
         guard let identifier = newWindow.tabbingIdentifier as String?,
-              !identifier.isEmpty else { return }
+              !identifier.isEmpty else { return false }
 
         let candidates = NSApp.windows.filter { other in
             other !== newWindow
@@ -37,9 +49,10 @@ struct WindowConfigurator: NSViewRepresentable {
                 && other.tabbingIdentifier == newWindow.tabbingIdentifier
                 && other.tabGroup !== newWindow.tabGroup  // not already grouped
         }
-        guard let host = candidates.first else { return }
+        guard let host = candidates.first else { return false }
         host.addTabbedWindow(newWindow, ordered: .above)
         newWindow.makeKeyAndOrderFront(nil)
+        return true
     }
 }
 
