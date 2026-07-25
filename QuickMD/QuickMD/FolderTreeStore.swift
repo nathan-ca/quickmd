@@ -15,6 +15,15 @@ final class FolderTreeStore: ObservableObject {
     @Published private(set) var rootURL: URL?
     @Published private(set) var rootChildren: [FolderTreeNode] = []
 
+    /// Which folders are expanded, shared across every open tab/window so
+    /// the tree stays in sync no matter which tab you expanded it from.
+    @Published private(set) var expandedURLs: Set<URL> = []
+
+    /// Per-folder lazy-loaded children, keyed by folder URL. Shared for the
+    /// same reason as `expandedURLs` — also means expanding the same folder
+    /// in two tabs only scans the directory once, not once per tab.
+    private var childrenCache: [URL: [FolderTreeNode]] = [:]
+
     private init() {
         restoreRootFolder()
     }
@@ -23,14 +32,40 @@ final class FolderTreeStore: ObservableObject {
     func pickRootFolder() {
         guard let url = SandboxAccessManager.shared.pickAndBookmarkFolder() else { return }
         rootURL = url
+        expandedURLs.removeAll()
+        childrenCache.removeAll()
         UserDefaults.standard.set(url.standardizedFileURL.path, forKey: Self.rootURLKey)
         refresh()
     }
 
-    /// Re-scan the current root folder's top level (manual refresh).
+    /// Re-scan the whole tree (manual refresh) — clears cached subtree
+    /// listings so every currently-expanded folder re-scans on next access.
     func refresh() {
         guard let rootURL else { return }
+        childrenCache.removeAll()
         rootChildren = FolderTreeNode.loadChildren(of: rootURL)
+    }
+
+    func isExpanded(_ url: URL) -> Bool {
+        expandedURLs.contains(url)
+    }
+
+    func setExpanded(_ expanded: Bool, for url: URL) {
+        if expanded {
+            expandedURLs.insert(url)
+        } else {
+            expandedURLs.remove(url)
+        }
+    }
+
+    /// Children of `url`, loading and caching them on first access.
+    func children(of url: URL) -> [FolderTreeNode] {
+        if let cached = childrenCache[url] {
+            return cached
+        }
+        let loaded = FolderTreeNode.loadChildren(of: url)
+        childrenCache[url] = loaded
+        return loaded
     }
 
     private func restoreRootFolder() {

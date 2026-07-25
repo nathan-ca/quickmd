@@ -140,8 +140,7 @@ private struct FolderTreeRow: View {
     let currentURL: URL?
     var depth: Int = 0
     let onOpen: (URL) -> Void
-    @State private var isExpanded = false
-    @State private var children: [FolderTreeNode]?
+    @ObservedObject private var store: FolderTreeStore = .shared
 
     /// Per-level indent. Applied explicitly here rather than relying on
     /// DisclosureGroup's own indentation — nested DisclosureGroups don't
@@ -149,22 +148,28 @@ private struct FolderTreeRow: View {
     /// absolute depth-based offset instead of stacking relative insets.
     private static let indentPerLevel: CGFloat = 14
 
+    /// Expand state and loaded children live in the shared store (not local
+    /// @State) so every open tab's tree shows the same expanded folders —
+    /// each tab renders its own view hierarchy, so per-row @State would
+    /// otherwise be invisible to every other tab.
+    private var isExpandedBinding: Binding<Bool> {
+        Binding(
+            get: { store.isExpanded(node.url) },
+            set: { store.setExpanded($0, for: node.url) }
+        )
+    }
+
     var body: some View {
         if node.isDirectory {
-            DisclosureGroup(isExpanded: $isExpanded) {
-                if let children {
-                    ForEach(children) { child in
+            DisclosureGroup(isExpanded: isExpandedBinding) {
+                if store.isExpanded(node.url) {
+                    ForEach(store.children(of: node.url)) { child in
                         FolderTreeRow(node: child, currentURL: currentURL, depth: depth + 1, onOpen: onOpen)
                     }
                 }
             } label: {
                 FolderTreeRowLabel(node: node, isCurrent: false)
                     .padding(.leading, CGFloat(depth) * Self.indentPerLevel)
-            }
-            .onChange(of: isExpanded) { _, expanded in
-                if expanded && children == nil {
-                    children = FolderTreeNode.loadChildren(of: node.url)
-                }
             }
         } else {
             FolderTreeRowLabel(
