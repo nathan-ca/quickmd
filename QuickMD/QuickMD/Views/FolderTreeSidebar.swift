@@ -3,10 +3,12 @@ import AppKit
 
 // MARK: - Folder Tree Sidebar
 
-/// Left sidebar for browsing a user-chosen folder's markdown files as an
-/// expandable tree. Only one root folder is tracked at a time (v1); picking
-/// a new folder replaces the current one. Each row loads its own children
-/// lazily on first expand, so large trees aren't walked up front.
+/// Left sidebar for browsing one or more user-chosen folders' markdown
+/// files as expandable trees. Each root folder is its own top-level row
+/// (removable, independently collapsible); each directory row loads its
+/// own children lazily on first expand, so large trees aren't walked up
+/// front. Updates live as files change on disk (`FolderTreeStore`'s
+/// `DirectoryTreeWatcher`), not just on manual refresh.
 struct FolderTreeSidebar: View {
     @ObservedObject var store: FolderTreeStore = .shared
     let theme: MarkdownTheme
@@ -18,22 +20,18 @@ struct FolderTreeSidebar: View {
             header
             Divider()
 
-            if store.rootURL == nil {
+            if store.rootURLs.isEmpty {
                 emptyState
-            } else if store.rootChildren.isEmpty {
-                Spacer(minLength: 0)
-                Text("No markdown files found")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 12)
-                    .multilineTextAlignment(.center)
-                Spacer(minLength: 0)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
-                        ForEach(store.rootChildren) { node in
-                            FolderTreeRow(node: node, currentURL: currentURL, onOpen: openDocument)
+                        ForEach(store.rootURLs, id: \.self) { rootURL in
+                            FolderTreeRow(
+                                node: FolderTreeNode(url: rootURL, isDirectory: true),
+                                currentURL: currentURL,
+                                onOpen: openDocument,
+                                onRemove: { store.removeRootFolder(rootURL) }
+                            )
                         }
                     }
                     .padding(.vertical, 4)
@@ -50,15 +48,13 @@ struct FolderTreeSidebar: View {
             Image(systemName: "folder")
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
-            Text(store.rootURL?.lastPathComponent ?? "Folder")
+            Text("Folders")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
 
             Spacer()
 
-            if store.rootURL != nil {
+            if !store.rootURLs.isEmpty {
                 Button {
                     store.refresh()
                 } label: {
@@ -70,19 +66,19 @@ struct FolderTreeSidebar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Refresh")
-
-                Button {
-                    store.pickRootFolder()
-                } label: {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .padding(3)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Change folder")
             }
+
+            Button {
+                store.addRootFolder()
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .padding(3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Add Folder")
 
             Button(action: onCollapse) {
                 Image(systemName: "sidebar.leading")
@@ -101,11 +97,11 @@ struct FolderTreeSidebar: View {
     private var emptyState: some View {
         VStack(spacing: 8) {
             Spacer(minLength: 0)
-            Text("No folder selected")
+            Text("No folders added yet")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
             Button("Add Folder…") {
-                store.pickRootFolder()
+                store.addRootFolder()
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -135,11 +131,15 @@ struct FolderTreeSidebar: View {
 
 /// Recursive row: a directory renders as a disclosure group whose children
 /// are loaded on first expand; a file renders as a leaf, tap-to-open.
+/// `onRemove` is only ever set for a root-level row (passed down from
+/// `FolderTreeSidebar`) — recursive calls for nested children always
+/// default it to `nil`, so only roots get a remove button.
 private struct FolderTreeRow: View {
     let node: FolderTreeNode
     let currentURL: URL?
     var depth: Int = 0
     let onOpen: (URL) -> Void
+    var onRemove: (() -> Void)? = nil
     @ObservedObject private var store: FolderTreeStore = .shared
 
     /// Per-level indent. Applied explicitly here rather than relying on
@@ -168,13 +168,14 @@ private struct FolderTreeRow: View {
                     }
                 }
             } label: {
-                FolderTreeRowLabel(node: node, isCurrent: false)
+                FolderTreeRowLabel(node: node, isCurrent: false, onRemove: onRemove)
                     .padding(.leading, CGFloat(depth) * Self.indentPerLevel)
             }
         } else {
             FolderTreeRowLabel(
                 node: node,
-                isCurrent: currentURL?.standardizedFileURL == node.url.standardizedFileURL
+                isCurrent: currentURL?.standardizedFileURL == node.url.standardizedFileURL,
+                onRemove: nil
             )
             // Files have no disclosure triangle, so add its approximate width
             // (~16pt) on top of the depth indent to align file names under
@@ -189,6 +190,7 @@ private struct FolderTreeRow: View {
 private struct FolderTreeRowLabel: View {
     let node: FolderTreeNode
     let isCurrent: Bool
+    let onRemove: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -200,6 +202,17 @@ private struct FolderTreeRowLabel: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 0)
+            if let onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .padding(2)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Remove folder")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)

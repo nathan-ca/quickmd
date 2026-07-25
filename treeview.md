@@ -184,3 +184,135 @@ polish, not required for correctness.
 1. Keyboard shortcut for the toggle: **`⌘⇧V`**.
 2. Independent panel vs. combining with the existing Documents sidebar
    behind a tab/segmented control: **independent**, confirmed for v1.
+
+## Status: v1 shipped
+
+Multi-round polish already landed on top of the original plan: the
+extension filter, indentation/alignment fixes, and moving expand-state +
+loaded-children from per-tab `@State` into `FolderTreeStore` so every open
+tab shows the same tree (see conversation history — not re-derived here).
+
+---
+
+# v2: Multiple root folders + live tree updates
+
+Picking up exactly the two items flagged "explicitly out of scope" above.
+The third (hiding folders with no markdown anywhere in their subtree)
+remains out of scope — not requested for v2.
+
+## Multiple root folders
+
+- `FolderTreeStore.rootURL: URL?` → `rootURLs: [URL]` (insertion order, not
+  sorted — matches how VS Code's multi-root workspaces behave, and avoids
+  surprising reordering when you add a folder).
+- `rootChildren: [FolderTreeNode]` → `rootChildrenByURL: [URL: [FolderTreeNode]]`,
+  one top-level listing per root.
+- `pickRootFolder()` (replace-the-one-root semantics) → `addRootFolder()`
+  (appends, skips duplicates by standardized path) + `removeRootFolder(_:)`.
+  Removing a root also deletes its `SandboxAccessManager` bookmark from
+  `UserDefaults` rather than leaving an orphaned entry behind.
+- Persistence: `UserDefaults` array of path strings instead of one string;
+  restore loops over each, skipping (not blocking on) any folder that's
+  been moved/deleted/had access revoked since last launch.
+- UI: the single-folder header (name + refresh/change/collapse) becomes a
+  generic panel header (title + "Add Folder" + collapse), and each root
+  gets its own row within the scrollable list — reusing the same
+  disclosure-row mechanism as nested folders (so a root can itself be
+  collapsed to hide its tree), plus a remove button a plain folder row
+  doesn't have. Global refresh button re-scans every root, not per-root —
+  simpler, and re-scanning a top-level directory listing is cheap.
+- `SandboxAccessManager` needs no changes — `pickAndBookmarkFolder()`/
+  `restoreAccess(for:)` already operate per-URL generically.
+
+## Live tree updates
+
+Confirmed in v1 planning: `FileWatchManager`'s kqueue approach doesn't
+scale to a whole tree (one descriptor per file, no recursion). Using
+**FSEvents** instead (`CoreServices`, public API — recursive tree
+watching in one stream per set of root paths, which kqueue can't do at
+all). New `DirectoryTreeWatcher.swift`, shaped like `FileWatcher.swift`
+(debounced `onChange` callback, main-queue by construction, deliberately
+not `@MainActor` for the same toolchain-compatibility reason documented in
+`FileWatcher.swift`) but backed by `FSEventStreamCreate` instead of a
+`DispatchSourceFileSystemObject`.
+
+Design choices, and why:
+- **One stream for all roots, not one per root.** `FSEventStreamCreate`
+  accepts an array of paths natively; recreated (stop + start fresh) only
+  when the root set changes (add/remove), which is a rare, user-driven
+  event — not a hot path.
+- **Treat any event as "something changed, refresh everything currently
+  visible."** No attempt to diff which specific node changed and patch
+  just that part of the tree. Simpler, and directory listings are cheap
+  enough that a full refresh on change is not a performance concern for a
+  markdown-file browser. Reuses the *exact* existing `refresh()` path —
+  live updates are not a separate code path from clicking the refresh
+  button, just a different trigger for the same method.
+- **Default FSEvents flags** (`kFSEventStreamCreateFlagNone`), not
+  `kFSEventStreamCreateFlagFileEvents`/`UseCFTypes` — those exist to get
+  per-file event detail, which isn't needed since we're not inspecting
+  individual event paths.
+- **Debounced** (matching `FileWatcher`'s 250ms pattern) so a burst of
+  saves (e.g. a git checkout touching many files) coalesces into one
+  refresh instead of many.
+
+## Suggested build order (v2)
+
+1. `FolderTreeStore` — `rootURLs`/`rootChildrenByURL`, add/remove methods,
+   multi-path persistence + restore.
+2. `Views/FolderTreeSidebar.swift` — header restructure, per-root row with
+   remove button, reusing the existing disclosure-row mechanism.
+3. `DirectoryTreeWatcher.swift` — FSEvents wrapper.
+4. Wire the watcher into `FolderTreeStore`: start/restart on root-set
+   changes, `onChange` calls the existing `refresh()`.
+5. Manual QA: add 2+ roots, confirm both persist across relaunch; remove
+   one, confirm its bookmark is cleaned up (not just hidden); with the app
+   running, create/rename/delete a `.md` file in a watched folder via
+   Finder/Terminal and confirm the tree updates without touching the
+   refresh button.
+
+## Status: v2 implemented, awaiting QA
+
+All of the above is built:
+`FolderTreeStore` moved to `rootURLs`/`addRootFolder`/`removeRootFolder`,
+`Views/FolderTreeSidebar.swift` restructured (generic header, per-root
+rows with a remove button, reusing the same disclosure-row mechanism as
+nested folders), `DirectoryTreeWatcher.swift` added and wired into
+`FolderTreeStore` so both manual refresh and live filesystem changes go
+through the same `refresh()` path. Not yet run through the manual QA list
+above — no unit tests were added for `DirectoryTreeWatcher` itself
+(FSEvents delivery timing is inherently unreliable to assert on in an
+automated test; this is exactly the kind of thing manual QA is for).
+
+## Known follow-ups (deliberately not done)
+
+From a `/simplify` pass before check-in — real findings, judged out of
+scope for a cleanup pass because each would change behavior or touch
+stable code well outside this diff:
+
+- **`refresh()` clears the entire `childrenCache`, for every root, on
+  every single FSEvents change** — even one scoped to a single file in one
+  small corner of one root's tree. This is the plan's original "any event
+  means refresh everything visible" design (see "Live tree updates"
+  above), not an oversight, but it does mean a change anywhere forces a
+  disk re-scan of every previously-expanded folder everywhere. Scoping it
+  down would mean threading FSEvents' actual changed-path data (currently
+  discarded in `DirectoryTreeWatcher`'s callback) through to `refresh()`
+  and only invalidating cache entries that are the changed path or a
+  descendant of it. Worth doing if live-update performance on large,
+  frequently-changing trees ever becomes a real complaint — not before.
+- **`DirectoryTreeWatcher`, `FileWatcher` (`FileWatchManager.swift`), and
+  `MarkdownView`'s search-text debounce all independently implement the
+  same cancel-and-reschedule `DispatchWorkItem` debounce pattern.** A
+  shared `Debouncer` utility would remove the duplication, but doing it
+  means modifying `FileWatcher` — stable code this diff never touched —
+  for a stylistic win. Not worth the regression risk in a pre-check-in
+  cleanup; a candidate for its own deliberate, tested refactor later.
+- **`FolderTreeStore.removeRootFolder` doesn't coordinate with
+  `OpenDocumentsStore` before revoking sandbox access to a folder.** If a
+  document from inside that folder is currently open in a tab, removing
+  the folder can leave that document unable to be reopened later — this
+  is the same root cause as the `CLAUDE.md` reopen-permission crash (see
+  `session-restore.md`'s "Known follow-ups" for the fuller writeup).
+  Flagged as a design question, not resolved: should removing a root
+  check for open documents underneath it first?

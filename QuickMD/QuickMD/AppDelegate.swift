@@ -40,8 +40,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 withContentsOf: url,
                 display: true,
                 completionHandler: { _, _, error in
-                    if let error {
-                        assertionFailure("Session restore failed to reopen \(url.lastPathComponent): \(error.localizedDescription)")
+                    // A single inaccessible/stale persisted URL (moved,
+                    // deleted, sandbox access revoked since last quit) must
+                    // never take the rest of launch down with it — skip it
+                    // and let the others still restore. Also drop it from
+                    // the persisted set so a permanently-broken entry
+                    // doesn't keep failing on every future launch.
+                    // `OpenDocumentsStore` is @MainActor; this completion
+                    // handler's own isolation isn't guaranteed by the SDK's
+                    // signature, so hop explicitly rather than assume.
+                    guard error != nil else { return }
+                    Task { @MainActor in
+                        OpenDocumentsStore.shared.unregister(url)
                     }
                 }
             )

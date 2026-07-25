@@ -157,3 +157,44 @@ fixable through documented API (see Risks above).
 Both fixes (`applicationShouldTerminate`/`isTerminating` guard, and
 `applicationShouldOpenUntitledFile` suppression) are in place and
 user-verified working, including the previously-visible Open-panel flash.
+
+## Incident: reopen-permission crash, and the fix that shipped
+
+After the folder tree gained multiple root folders (`treeview.md` v2),
+relaunching crashed with `Fatal error: Session restore failed to reopen
+CLAUDE.md: ... You don't have permission.` in `AppDelegate.swift`'s
+reopen completion handler, which called `assertionFailure` on any reopen
+failure — a single inaccessible persisted URL took the whole app down.
+
+**Fixed:** the completion handler no longer crashes. On failure it now
+calls `OpenDocumentsStore.shared.unregister(url)` (hopped onto the main
+actor explicitly, since the handler's own isolation isn't guaranteed by
+the SDK's signature) and moves on — one bad entry no longer blocks the
+others from restoring, and it self-heals rather than failing forever on
+every future launch.
+
+**Likely root cause, not fully confirmed:** `CLAUDE.md` was almost
+certainly opened by clicking it in the new folder tree, where a file's
+accessibility depends entirely on its *parent folder's* security-scoped
+bookmark being active — unlike a file opened via the system Open panel or
+Recent Documents, which gets its own durable, system-managed grant. If
+that parent folder was later removed as a tree root (revoking and
+deleting its bookmark via `SandboxAccessManager.forgetBookmark`) while
+the file was still open in a tab, reopening it on next launch has nothing
+left to grant access.
+
+## Known follow-ups (deliberately not done)
+
+- **Silent data loss on a failed restore.** The crash fix above trades a
+  loud crash for a *silent* one — the tab just disappears from the
+  persisted set with no user-facing signal anything was dropped. Flagged
+  in a `/simplify` pass before check-in. A real fix means new UI (e.g. an
+  aggregate "N items couldn't be restored" notice at launch), which is a
+  small feature, not a cleanup — not done here.
+- **No coordination between `FolderTreeStore` and `OpenDocumentsStore`**
+  before revoking a folder's sandbox access — the root cause above. Two
+  stores independently own overlapping slices of "what filesystem access
+  does this app currently need," with no shared point where one can ask
+  "is anything still using this?" before the other tears it down. Not
+  resolved — flagged as a design question in `treeview.md`'s follow-ups
+  too.

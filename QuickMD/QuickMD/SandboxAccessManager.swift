@@ -107,7 +107,7 @@ final class SandboxAccessManager {
     /// security-scoped bookmark for it. Unlike `ensureAccess(forParentOf:)`
     /// (which derives the parent directory of a file already being opened),
     /// this lets the user pick a folder directly — used by the folder tree
-    /// sidebar's "Add Folder" / "Change Folder" actions.
+    /// sidebar's "Add Folder" action.
     /// Returns the picked folder on success, `nil` if cancelled or denied.
     @discardableResult
     func pickAndBookmarkFolder() -> URL? {
@@ -150,6 +150,19 @@ final class SandboxAccessManager {
             url.stopAccessingSecurityScopedResource()
         }
         activeAccessURLs.removeAll()
+    }
+
+    /// Stop accessing `directoryURL` and delete its persisted bookmark —
+    /// used when the user explicitly removes a folder tree root, so it
+    /// doesn't linger in `UserDefaults` as an orphaned entry they have no
+    /// way to see or clear.
+    func forgetBookmark(for directoryURL: URL) {
+        let std = directoryURL.standardizedFileURL
+        if let index = activeAccessURLs.firstIndex(where: { $0.standardizedFileURL == std }) {
+            activeAccessURLs[index].stopAccessingSecurityScopedResource()
+            activeAccessURLs.remove(at: index)
+        }
+        UserDefaults.standard.removeObject(forKey: Self.bookmarkKey(for: std))
     }
 
     /// Generate a UserDefaults key for a directory path.

@@ -97,6 +97,7 @@
 		A1B2C3D401000059 /* OpenDocumentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000052 /* OpenDocumentsStore.swift */; };
 		A1B2C3D40100005A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000053 /* AppDelegate.swift */; };
 		A1B2C3D40100005B /* WindowFrameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000054 /* WindowFrameStore.swift */; };
+		A1B2C3D40100005C /* DirectoryTreeWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000055 /* DirectoryTreeWatcher.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -183,6 +184,7 @@
 		A1B2C3D400000052 /* OpenDocumentsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenDocumentsStore.swift; sourceTree = "<group>"; };
 		A1B2C3D400000053 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1B2C3D400000054 /* WindowFrameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFrameStore.swift; sourceTree = "<group>"; };
+		A1B2C3D400000055 /* DirectoryTreeWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryTreeWatcher.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -242,6 +244,7 @@
 				A1B2C3D400000052 /* OpenDocumentsStore.swift */,
 				A1B2C3D400000053 /* AppDelegate.swift */,
 				A1B2C3D400000054 /* WindowFrameStore.swift */,
+				A1B2C3D400000055 /* DirectoryTreeWatcher.swift */,
 				A1B2C3D40000000B /* TipJarProducts.storekit */,
 				A1B2C3D400000005 /* Assets.xcassets */,
 				A1B2C3D400000006 /* QuickMD.entitlements */,
@@ -507,6 +510,7 @@
 				A1B2C3D401000059 /* OpenDocumentsStore.swift in Sources */,
 				A1B2C3D40100005A /* AppDelegate.swift in Sources */,
 				A1B2C3D40100005B /* WindowFrameStore.swift in Sources */,
+				A1B2C3D40100005C /* DirectoryTreeWatcher.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
