@@ -13,6 +13,8 @@ enum AppURLs {
 
 @main
 struct QuickMDApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         // Premium UX: every QuickMD document opens as a tab in an existing window
         // (instead of stacking standalone windows). Overrides the system-wide
@@ -20,6 +22,12 @@ struct QuickMDApp: App {
         // The actual tabbingMode + tabbingIdentifier is set per-window via
         // WindowAccessor in MarkdownView.
         NSWindow.allowsAutomaticWindowTabbing = true
+
+        // FolderTreeStore is otherwise lazily initialized by the first view
+        // that touches `.shared` — which never happens if the app launches
+        // straight to the Open panel with no document window. Touch it here
+        // so the persisted root folder restores regardless (session-restore.md).
+        _ = FolderTreeStore.shared
     }
 
     var body: some Scene {

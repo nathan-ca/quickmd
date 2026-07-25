@@ -335,6 +335,7 @@ struct MarkdownView: View {
         .onAppear {
             if let url = documentURL {
                 RecentDocumentsStore.shared.register(url)
+                OpenDocumentsStore.shared.register(url)
                 // Auto-reload: watch this document's file and refresh on save.
                 // Silent by default — pro users expect the viewer to be current.
                 let watcher = FileWatcher()
@@ -383,6 +384,13 @@ struct MarkdownView: View {
             }
             fileWatcher?.stop()
             fileWatcher = nil
+            // Skip unregistering while the app is quitting — AppKit closes
+            // every window as part of quit, which fires this same
+            // onDisappear per tab, and we want the persisted set to reflect
+            // what was open at quit time for next launch (session-restore.md).
+            if let url = documentURL, !AppDelegate.isTerminating {
+                OpenDocumentsStore.shared.unregister(url)
+            }
         }
     }
 
